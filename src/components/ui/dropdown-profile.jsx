@@ -1,10 +1,11 @@
+"use client";
+
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import {
   UserIcon,
   SettingsIcon,
   CreditCardIcon,
-  UsersIcon,
-  SquarePenIcon,
-  CirclePlusIcon,
   LogOutIcon
 } from 'lucide-react'
 
@@ -18,12 +19,29 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
+import { useAuth } from '@/context/AuthContext'
 
 const ProfileDropdown = ({
   trigger,
   defaultOpen,
-  align = 'end'
+  align = 'end',
+  user
 }) => {
+  const router = useRouter();
+  const { logout } = useAuth();
+
+  // Get user initials for avatar fallback
+  const getInitials = (name) => {
+    if (!name) return 'U';
+    const names = name.split(' ');
+    return names.map(n => n[0]).join('').toUpperCase().slice(0, 2);
+  };
+
+  const handleLogout = async () => {
+    await logout();
+    router.push("/login");
+  };
+
   return (
     <DropdownMenu defaultOpen={defaultOpen}>
       <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
@@ -32,56 +50,45 @@ const ProfileDropdown = ({
           <div className='relative'>
             <Avatar className='size-10'>
               <AvatarImage
-                src='https://cdn.shadcnstudio.com/ss-assets/avatar/avatar-1.png'
-                alt='John Doe' />
-              <AvatarFallback>JD</AvatarFallback>
+                src={user?.profilePicture || ''}
+                alt={user?.fullName || 'User'} />
+              <AvatarFallback>{getInitials(user?.fullName)}</AvatarFallback>
             </Avatar>
             <span
               className='ring-card absolute right-0 bottom-0 block size-2 rounded-full bg-green-600 ring-2' />
           </div>
           <div className='flex flex-1 flex-col items-start'>
-            <span className='text-foreground text-lg font-semibold'>John Doe</span>
-            <span className='text-muted-foreground text-base'>john.doe@example.com</span>
+            <span className='text-foreground text-lg font-semibold'>{user?.fullName || 'User'}</span>
+            <span className='text-muted-foreground text-base'>{user?.email || ''}</span>
           </div>
         </DropdownMenuLabel>
 
         <DropdownMenuSeparator />
 
         <DropdownMenuGroup>
-          <DropdownMenuItem className='px-4 py-2.5 text-base'>
-            <UserIcon className='text-foreground size-5' />
-            <span>My account</span>
+          <DropdownMenuItem asChild className='px-4 py-2.5 text-base cursor-pointer'>
+            <Link href='/candidate/profile'>
+              <UserIcon className='text-foreground size-5' />
+              <span>My Profile</span>
+            </Link>
           </DropdownMenuItem>
-          <DropdownMenuItem className='px-4 py-2.5 text-base'>
-            <SettingsIcon className='text-foreground size-5' />
-            <span>Settings</span>
+          <DropdownMenuItem asChild className='px-4 py-2.5 text-base cursor-pointer'>
+            <Link href='/settings'>
+              <SettingsIcon className='text-foreground size-5' />
+              <span>Settings</span>
+            </Link>
           </DropdownMenuItem>
-          <DropdownMenuItem className='px-4 py-2.5 text-base'>
-            <CreditCardIcon className='text-foreground size-5' />
-            <span>Billing</span>
-          </DropdownMenuItem>
-        </DropdownMenuGroup>
-
-        <DropdownMenuSeparator />
-
-        <DropdownMenuGroup>
-          <DropdownMenuItem className='px-4 py-2.5 text-base'>
-            <UsersIcon className='text-foreground size-5' />
-            <span>Manage team</span>
-          </DropdownMenuItem>
-          <DropdownMenuItem className='px-4 py-2.5 text-base'>
-            <SquarePenIcon className='text-foreground size-5' />
-            <span>Customization</span>
-          </DropdownMenuItem>
-          <DropdownMenuItem className='px-4 py-2.5 text-base'>
-            <CirclePlusIcon className='text-foreground size-5' />
-            <span>Add team account</span>
+          <DropdownMenuItem asChild className='px-4 py-2.5 text-base cursor-pointer'>
+            <Link href='/pricing'>
+              <CreditCardIcon className='text-foreground size-5' />
+              <span>Billing & Plans</span>
+            </Link>
           </DropdownMenuItem>
         </DropdownMenuGroup>
 
         <DropdownMenuSeparator />
 
-        <DropdownMenuItem variant='destructive' className='px-4 py-2.5 text-base'>
+        <DropdownMenuItem variant='destructive' className='px-4 py-2.5 text-base' onClick={handleLogout}>
           <LogOutIcon className='size-5' />
           <span>Logout</span>
         </DropdownMenuItem>

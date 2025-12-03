@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import axios from "axios"
+import { useAuth } from "@/context/AuthContext"
 
 export function LoginForm({
   className,
@@ -29,6 +30,7 @@ export function LoginForm({
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const router = useRouter();
+  const { login } = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -39,9 +41,9 @@ export function LoginForm({
         setError("Login failed. Please try again");
         return;
       }
-      localStorage.setItem("token", res.data.token);
-      if (res.data.user) localStorage.setItem("user", JSON.stringify(res.data.user));
-      router.push("/jobs");
+      // Use the login function from AuthContext to update state immediately
+      login(res.data.token, res.data.user);
+      router.push("/");
     } catch (err) {
       const backendError = err.response?.data?.error || err.response?.data?.message ||
     "Login failed. Please try again.";

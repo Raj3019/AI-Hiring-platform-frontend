@@ -18,11 +18,13 @@ import {
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import axios from "axios";
+import { useAuth } from "@/context/AuthContext";
 
 export function SignupForm({
   ...props
 }) {
   const router = useRouter();
+  const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -40,7 +42,8 @@ export function SignupForm({
         `${process.env.NEXT_PUBLIC_API_URL}/employee/signup`,{email, password}
       )
       console.log(res.data)
-      localStorage.setItem("token", res.data.token)
+      // Use the login function from AuthContext to update state immediately
+      login(res.data.token, res.data.user);
       router.push("/candidate/setup");
     } catch (err) {
       setError(err.response?.data.message || "Registration failed. Please try again.")
