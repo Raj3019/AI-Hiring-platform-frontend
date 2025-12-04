@@ -336,10 +336,10 @@ export default function ProfilePage() {
               
               <Badge variant="secondary" className="mb-4">Pro Member</Badge>
               
-              <Button className="w-full mb-6 gap-2">
+              {/* <Button className="w-full mb-6 gap-2">
                 <Mail className="h-4 w-4" />
                 Message
-              </Button>
+              </Button> */}
               
               {/* Skills Preview */}
               {formData.skills && (
