@@ -50,6 +50,9 @@ export default function ProfilePage() {
   const [resumeUploading, setResumeUploading] = useState(false);
   const [resumeUploadSuccess, setResumeUploadSuccess] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
+  const [profilePicUploading, setProfilePicUploading] = useState(false);
+  const [profilePicUploadSuccess, setProfilePicUploadSuccess] = useState(false);
+  const [appliedJobs, setAppliedJobs] = useState([]);
 
   // Fetch user profile data on mount
   useEffect(() => {
@@ -142,6 +145,30 @@ export default function ProfilePage() {
             preferredLocations: data.preferredLocations || "",
             willingToRelocate: data.willingToRelocate || false,
           };
+          
+          // Fetch applied jobs details using application IDs
+          if (data.appliedJobs && Array.isArray(data.appliedJobs)) {
+            // Fetch job details for each application
+            const jobDetailsPromises = data.appliedJobs.map(async (applicationId) => {
+              try {
+                const jobRes = await axios.get(
+                  `${process.env.NEXT_PUBLIC_API_URL}/application/${applicationId}`,
+                  {
+                    headers: {
+                      Authorization: token ? `Bearer ${token}` : undefined,
+                    },
+                  }
+                );
+                return jobRes.data?.data || jobRes.data;
+              } catch (err) {
+                console.error(`Failed to fetch application ${applicationId}:`, err);
+                return null;
+              }
+            });
+            
+            const jobsData = await Promise.all(jobDetailsPromises);
+            setAppliedJobs(jobsData.filter(job => job !== null));
+          }
           
           setFormData((prev) => ({
             ...prev,
@@ -238,6 +265,60 @@ export default function ProfilePage() {
     }
   };
 
+  const handleProfilePictureUpload = async (file) => {
+    if (!file) return;
+
+    setProfilePicUploading(true);
+    setProfilePicUploadSuccess(false);
+
+    const formData = new FormData();
+    formData.append('profilePicture', file);
+
+    try {
+      const token = localStorage.getItem("token");
+      
+      const response = await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL}/employee/profile/picture`,
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.data) {
+        console.log("Profile picture upload response:", response.data);
+        
+        // Extract the Cloudinary URL from response
+        // API returns: { profilePicture: "cloudinary_url", profilePicturePublicId: "..." }
+        const pictureUrl = response.data.profilePicture 
+          || response.data.profilePictureUrl 
+          || response.data.url 
+          || response.data.data?.profilePicture
+          || response.data.data?.profilePictureUrl;
+        
+        if (pictureUrl) {
+          updateFormData("profilePicture", pictureUrl);
+          setProfilePicUploadSuccess(true);
+          console.log("Profile picture URL set to:", pictureUrl);
+          
+          // Hide success message after 3 seconds
+          setTimeout(() => setProfilePicUploadSuccess(false), 3000);
+        } else {
+          console.error("No profile picture URL found in response:", response.data);
+          alert("Upload succeeded but couldn't find the image URL in response.");
+        }
+      }
+    } catch (error) {
+      console.error("Error uploading profile picture:", error);
+      alert("Failed to upload profile picture. Please try again.");
+    } finally {
+      setProfilePicUploading(false);
+    }
+  };
+
   const togglePopover = (popoverName, isOpen) => {
     setOpenPopovers((prev) => ({ ...prev, [popoverName]: isOpen }));
   };
@@ -298,26 +379,38 @@ export default function ProfilePage() {
                 {isEditMode && (
                   <label 
                     htmlFor="profilePictureUpload" 
-                    className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"
+                    className={cn(
+                      "absolute inset-0 flex items-center justify-center bg-black/50 rounded-full cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity",
+                      profilePicUploading && "opacity-100"
+                    )}
                   >
-                    <Edit className="h-6 w-6 text-white" />
+                    {profilePicUploading ? (
+                      <div className="flex flex-col items-center gap-1">
+                        <Upload className="h-6 w-6 text-white animate-bounce" />
+                        <span className="text-xs text-white">Uploading...</span>
+                      </div>
+                    ) : (
+                      <Edit className="h-6 w-6 text-white" />
+                    )}
                     <input
                       id="profilePictureUpload"
                       type="file"
                       accept="image/*"
                       className="hidden"
+                      disabled={profilePicUploading}
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) {
-                          const reader = new FileReader();
-                          reader.onloadend = () => {
-                            updateFormData("profilePicture", reader.result);
-                          };
-                          reader.readAsDataURL(file);
+                          handleProfilePictureUpload(file);
                         }
                       }}
                     />
                   </label>
+                )}
+                {profilePicUploadSuccess && (
+                  <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 bg-green-500 text-white text-xs px-2 py-1 rounded-full whitespace-nowrap">
+                    ✓ Uploaded
+                  </div>
                 )}
               </div>
               
@@ -418,29 +511,55 @@ export default function ProfilePage() {
                 </Card>
               </div>
 
-              {/* Recent Activity */}
+              {/* Applied Jobs */}
               <Card className="flex-1">
                 <CardHeader>
-                  <CardTitle>Recent Activity</CardTitle>
+                  <CardTitle>Applied Jobs</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-8">
-                    {[1, 2, 3].map((item, index) => (
-                      <div key={index} className="flex items-start gap-4 pb-6 border-b last:border-0 last:pb-0">
-                        <div className="mt-1 p-2 bg-muted rounded-full">
-                          <Star className="h-4 w-4 text-muted-foreground" />
-                        </div>
-                        <div className="space-y-1">
-                          <p className="text-sm font-medium leading-none">
-                            Completed project "Dashboard UI"
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            2 hours ago
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                  {appliedJobs.length > 0 ? (
+                    <div className="space-y-4">
+                      {appliedJobs.slice(0, 5).map((application, index) => {
+                        // Application object structure from API
+                        const job = application.jobId || application.job || application;
+                        const appliedDate = application.appliedAt || application.createdAt || application.date;
+                        const status = application.status || 'pending';
+                        
+                        return (
+                          <div key={application._id || application.id || index} className="flex items-start gap-4 pb-4 border-b last:border-0 last:pb-0">
+                            <div className="mt-1 p-2 bg-blue-50 rounded-lg">
+                              <Briefcase className="h-4 w-4 text-blue-600" />
+                            </div>
+                            <div className="flex-1 space-y-1">
+                              <p className="text-sm font-medium leading-none">
+                                {job.title || job.jobTitle || 'Job Title'}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {job.companyName || job.company || 'Company'}
+                              </p>
+                              {appliedDate && (
+                                <p className="text-xs text-muted-foreground">
+                                  Applied {new Date(appliedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                </p>
+                              )}
+                            </div>
+                            <Badge 
+                              variant={status === 'accepted' ? 'default' : status === 'rejected' ? 'destructive' : 'secondary'}
+                              className="text-xs capitalize"
+                            >
+                              {status}
+                            </Badge>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Briefcase className="h-12 w-12 mx-auto mb-2 opacity-20" />
+                      <p className="text-sm">No job applications yet</p>
+                      <p className="text-xs mt-1">Start applying to jobs to see them here</p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </>

@@ -2,6 +2,7 @@ import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MapPin, Clock, DollarSign, Briefcase, Building2 } from "lucide-react";
+import { useRouter } from 'next/navigation';
 
 export function JobCard({ job }) {
   // Helpers to safely render possible object fields from API
@@ -140,6 +141,13 @@ export function JobCard({ job }) {
     } catch (e) {}
   }
 
+  const router = useRouter();
+
+  const handleApply = () => {
+    const id = job._id ?? job.id ?? encodeURIComponent((job.title ?? 'job').toLowerCase().replace(/\s+/g, '-'));
+    router.push(`/jobs/${id}`);
+  };
+
   return (
     <Card className="flex flex-col h-full transition-all duration-200 hover:border-primary/50 hover:shadow-md bg-card">
       <CardHeader className="space-y-3 pb-3">
@@ -182,7 +190,7 @@ export function JobCard({ job }) {
         </p>
       </CardContent>
       <CardFooter className="pt-4">
-        <Button className="w-full font-semibold shadow-none">Apply Now</Button>
+        <Button className="w-full font-semibold shadow-none" onClick={handleApply}>Apply Now</Button>
       </CardFooter>
     </Card>
   );
