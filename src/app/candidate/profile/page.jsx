@@ -53,6 +53,7 @@ export default function ProfilePage() {
   const [profilePicUploading, setProfilePicUploading] = useState(false);
   const [profilePicUploadSuccess, setProfilePicUploadSuccess] = useState(false);
   const [appliedJobs, setAppliedJobs] = useState([]);
+  const [recentApplicationJob, setRecentApplicationJob] = useState(null);
 
   // Fetch user profile data on mount
   useEffect(() => {
@@ -75,10 +76,20 @@ export default function ProfilePage() {
         });
         if (res.ok) {
           const responseData = await res.json();
-          console.log("API Response:", responseData);
+          console.log("Full API Response:", responseData);
           
           const data = responseData.data || responseData;
           
+          // Set all applied jobs from the recentApplicationJob array
+          const recentJobArray = responseData.recentApplicationJob || data.recentApplicationJob;
+          console.log("recentJobArray:", recentJobArray);
+          
+          if (recentJobArray && Array.isArray(recentJobArray) && recentJobArray.length > 0) {
+            console.log("Setting all applied jobs:", recentJobArray);
+            setAppliedJobs(recentJobArray);
+            // Also set the most recent one
+            setRecentApplicationJob(recentJobArray[0]);
+          }
           // Transform the API response to match form structure
           const transformedData = {
             fullName: data.fullName || "",
@@ -146,29 +157,10 @@ export default function ProfilePage() {
             willingToRelocate: data.willingToRelocate || false,
           };
           
-          // Fetch applied jobs details using application IDs
-          if (data.appliedJobs && Array.isArray(data.appliedJobs)) {
-            // Fetch job details for each application
-            const jobDetailsPromises = data.appliedJobs.map(async (applicationId) => {
-              try {
-                const jobRes = await axios.get(
-                  `${process.env.NEXT_PUBLIC_API_URL}/application/${applicationId}`,
-                  {
-                    headers: {
-                      Authorization: token ? `Bearer ${token}` : undefined,
-                    },
-                  }
-                );
-                return jobRes.data?.data || jobRes.data;
-              } catch (err) {
-                console.error(`Failed to fetch application ${applicationId}:`, err);
-                return null;
-              }
-            });
-            
-            const jobsData = await Promise.all(jobDetailsPromises);
-            setAppliedJobs(jobsData.filter(job => job !== null));
-          }
+          // Use appliedJobs directly from profile response
+          // Note: appliedJobs in response is just IDs, so we'll skip showing them separately
+          // The recentApplicationJob already shows the most recent one
+          console.log("Applied Jobs IDs:", data.appliedJobs);
           
           setFormData((prev) => ({
             ...prev,
@@ -477,11 +469,11 @@ export default function ProfilePage() {
                 <Card>
                   <CardContent className="pt-6 flex items-center gap-4">
                     <div className="p-3 bg-primary/10 rounded-lg">
-                      <Star className="h-6 w-6 text-primary" />
+                      <Briefcase className="h-6 w-6 text-primary" />
                     </div>
                     <div>
-                      <div className="text-2xl font-bold">128</div>
-                      <div className="text-xs text-muted-foreground">Projects Completed</div>
+                      <div className="text-2xl font-bold">{appliedJobs.length}</div>
+                      <div className="text-xs text-muted-foreground">Jobs Applied</div>
                     </div>
                   </CardContent>
                 </Card>
@@ -512,6 +504,62 @@ export default function ProfilePage() {
               </div>
 
               {/* Applied Jobs */}
+              {/* Recent Application Job */}
+              {console.log("Rendering - recentApplicationJob:", recentApplicationJob)}
+              {recentApplicationJob && recentApplicationJob.job && (
+                <Card className="mb-4">
+                  <CardHeader>
+                    <CardTitle>Most Recent Application</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-start gap-4 pb-4">
+                      <div className="mt-1 p-2 bg-blue-50 rounded-lg">
+                        <Briefcase className="h-4 w-4 text-blue-600" />
+                      </div>
+                      <div className="flex-1 space-y-1">
+                        <p className="text-sm font-medium leading-none">
+                          {recentApplicationJob.job?.title || recentApplicationJob.title || 'Job Title'}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {recentApplicationJob.job?.companyName || recentApplicationJob.companyName || 'Company'}
+                        </p>
+                        {(recentApplicationJob.job?.department || recentApplicationJob.department) && (
+                          <p className="text-xs text-muted-foreground">
+                            Department: {recentApplicationJob.job?.department || recentApplicationJob.department}
+                          </p>
+                        )}
+                        {(recentApplicationJob.job?.location || recentApplicationJob.location) && (
+                          <p className="text-xs text-muted-foreground">
+                            Location: {recentApplicationJob.job?.location || recentApplicationJob.location}
+                          </p>
+                        )}
+                        {(recentApplicationJob.job?.salary || recentApplicationJob.salary) && (
+                          <p className="text-xs text-muted-foreground">
+                            Salary: {recentApplicationJob.job?.salary?.min || recentApplicationJob.salary?.min} - {recentApplicationJob.job?.salary?.max || recentApplicationJob.salary?.max} {recentApplicationJob.job?.salary?.currency || recentApplicationJob.salary?.currency}
+                          </p>
+                        )}
+                        {recentApplicationJob.createdAt && (
+                          <p className="text-xs text-muted-foreground">
+                            Applied {new Date(recentApplicationJob.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </p>
+                        )}
+                        {recentApplicationJob.status && (
+                          <p className="text-xs text-muted-foreground">
+                            Status: {recentApplicationJob.status}
+                          </p>
+                        )}
+                      </div>
+                      <Badge 
+                        variant={recentApplicationJob.status === 'accepted' ? 'default' : recentApplicationJob.status === 'rejected' ? 'destructive' : 'secondary'}
+                        className="text-xs capitalize"
+                      >
+                        {recentApplicationJob.status || 'pending'}
+                      </Badge>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              {/* Applied Jobs List */}
               <Card className="flex-1">
                 <CardHeader>
                   <CardTitle>Applied Jobs</CardTitle>
@@ -519,12 +567,11 @@ export default function ProfilePage() {
                 <CardContent>
                   {appliedJobs.length > 0 ? (
                     <div className="space-y-4">
-                      {appliedJobs.slice(0, 5).map((application, index) => {
-                        // Application object structure from API
-                        const job = application.jobId || application.job || application;
+                      {appliedJobs.map((application, index) => {
+                        // Use job object if present, else fallback to root-level fields
+                        const job = application.job || application;
                         const appliedDate = application.appliedAt || application.createdAt || application.date;
                         const status = application.status || 'pending';
-                        
                         return (
                           <div key={application._id || application.id || index} className="flex items-start gap-4 pb-4 border-b last:border-0 last:pb-0">
                             <div className="mt-1 p-2 bg-blue-50 rounded-lg">
@@ -532,11 +579,21 @@ export default function ProfilePage() {
                             </div>
                             <div className="flex-1 space-y-1">
                               <p className="text-sm font-medium leading-none">
-                                {job.title || job.jobTitle || 'Job Title'}
+                                {job.title || 'Job Title'}
                               </p>
                               <p className="text-xs text-muted-foreground">
-                                {job.companyName || job.company || 'Company'}
+                                {job.companyName || 'Company'}
                               </p>
+                              {job.department && (
+                                <p className="text-xs text-muted-foreground">
+                                  Department: {job.department}
+                                </p>
+                              )}
+                              {job.location && (
+                                <p className="text-xs text-muted-foreground">
+                                  Location: {job.location}
+                                </p>
+                              )}
                               {appliedDate && (
                                 <p className="text-xs text-muted-foreground">
                                   Applied {new Date(appliedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
